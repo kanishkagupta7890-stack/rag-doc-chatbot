@@ -1,168 +1,85 @@
-# 📄 Document Q&A Chatbot (RAG-based)
+# RAG Document Q&A Chatbot
 
-A chatbot that answers questions about your documents (PDF or text) using
-**Retrieval-Augmented Generation (RAG)** — a core technique behind real-world
-production GenAI applications like enterprise search, customer support bots,
-and internal knowledge assistants.
+A chatbot I built that can answer questions about any document you upload (PDF or text file). It uses RAG (Retrieval-Augmented Generation) so the answers are actually grounded in the document content instead of the model just making stuff up.
 
----
+I built this to learn how RAG pipelines work in practice — chunking documents, embedding them, storing in a vector database, and using an LLM to generate answers from retrieved context.
 
-## 🚀 Quick Setup (15 minutes)
+## What it does
 
-### 1. Install Python dependencies
-```bash
+- Upload a PDF or .txt file
+- Ask questions about it in a chat interface
+- Get answers along with the source chunks used to generate them
+- Includes an evaluation script (RAGAS) that scores answer quality on faithfulness, relevancy, precision and recall
+
+## Stack
+
+- **LangChain** for orchestration
+- **ChromaDB** as the vector store
+- **sentence-transformers (all-MiniLM-L6-v2)** for embeddings — runs locally, no API needed
+- **Groq (Llama 3.1)** for the LLM — free tier, fast inference
+- **Streamlit** for the UI
+
+## How to run it locally
+
+1. Clone the repo and install dependencies:
+```
 pip install -r requirements.txt
 ```
 
-### 2. Get a free Groq API key
-Groq provides free, very fast access to open-source LLMs (Llama 3).
-1. Go to https://console.groq.com/keys
-2. Sign up (no credit card needed)
-3. Create an API key
+2. Get a free Groq API key from console.groq.com/keys
 
-### 3. Set up your API key
-Copy `.env.example` to `.env` and paste your key:
-```bash
-cp .env.example .env
+3. Create a `.env` file in the project root:
 ```
-Then edit `.env`:
-```
-GROQ_API_KEY=gsk_your_actual_key_here
+GROQ_API_KEY=your_key_here
 ```
 
-### 4. Run the app
-```bash
+4. Run the app:
+```
 streamlit run app.py
 ```
-Your browser will open automatically at `http://localhost:8501`
 
-### 5. Test it
-- Upload `sample_docs/company_policy.txt` (included in this project)
-- Click "Process Document"
-- Ask: *"How many vacation days do employees get per year?"*
-- Ask: *"Can I work remotely every day?"*
+5. Upload a doc (there's a sample one in `sample_docs/`) and start asking questions.
 
----
+## Evaluation
 
-## 🏗️ How It Works (Architecture)
+I ran the chatbot through RAGAS on a set of 5 test questions to check answer quality:
 
+| Metric | Score |
+|---|---|
+| Faithfulness | 83% |
+| Answer Relevancy | 92% |
+| Context Precision | 100% |
+| Context Recall | 100% |
+
+To run the evaluation yourself:
 ```
-User uploads PDF/TXT
-        │
-        ▼
-┌───────────────────┐
-│  1. Document Load  │  (PyPDFLoader / TextLoader)
-└───────────────────┘
-        │
-        ▼
-┌───────────────────┐
-│  2. Text Splitting │  (RecursiveCharacterTextSplitter)
-│  Break into ~1000  │
-│  char chunks       │
-└───────────────────┘
-        │
-        ▼
-┌───────────────────┐
-│  3. Embedding      │  (sentence-transformers/all-MiniLM-L6-v2)
-│  Convert chunks to │  Runs locally, free, no API key
-│  vectors           │
-└───────────────────┘
-        │
-        ▼
-┌───────────────────┐
-│  4. Vector Store   │  (ChromaDB)
-│  Store & index     │
-│  vectors           │
-└───────────────────┘
-        │
-   User asks question
-        │
-        ▼
-┌───────────────────┐
-│  5. Retrieval      │  Embed question → find top-3
-│                    │  most similar chunks
-└───────────────────┘
-        │
-        ▼
-┌───────────────────┐
-│  6. Generation     │  (Groq + Llama 3.1)
-│  LLM answers using │
-│  retrieved chunks  │
-└───────────────────┘
-        │
-        ▼
-   Answer + Sources
+python evaluate.py
 ```
 
----
+One thing I noticed while testing — one question scored lower on faithfulness (0.33) because the model added a small detail not directly supported by the retrieved chunk. Worth digging into if you're tuning chunk size or retrieval count (`k`).
 
-## 🛠️ Tech Stack
+## How it works (the short version)
 
-| Component | Tool | Why |
-|---|---|---|
-| Frontend | Streamlit | Fast way to build AI demos |
-| Orchestration | LangChain | Industry-standard GenAI framework |
-| Embeddings | sentence-transformers (MiniLM) | Free, local, fast |
-| Vector DB | ChromaDB | Simple, embeddable, widely used |
-| LLM | Groq (Llama 3.1) | Free tier, extremely fast inference |
+1. Document gets split into ~1000-character chunks
+2. Each chunk is converted into a vector using the embedding model
+3. Vectors get stored in ChromaDB
+4. When you ask a question, it's also converted to a vector and compared against stored chunks to find the most relevant ones
+5. Those chunks + your question get sent to the LLM, which generates an answer using only that context
 
----
+## Notes / things I'd improve next
 
-## 📈 Ways to Extend This (do these to make it stand out further)
+- Right now it only handles one document at a time — multi-doc support would be a good next step
+- No conversation memory yet, so it doesn't remember earlier questions in the same session
+- Ran into a couple of rate-limit issues with Groq's free tier during evaluation — added retry logic to handle that
 
-Pick 1-2 of these to add depth — each one gives you more to talk about in interviews:
-
-1. **Add evaluation metrics** — Create a small set of Q&A pairs and measure
-   answer accuracy/relevance. Mention this metric on your resume.
-2. **Support multiple documents** — Let users upload several files and search across all of them.
-3. **Add conversation memory** — Use `ConversationalRetrievalChain` so the bot remembers previous questions.
-4. **Deploy it** — Push to [Streamlit Community Cloud](https://streamlit.io/cloud) (free) so you have a live demo link.
-5. **Swap the vector DB** — Try Pinecone or Weaviate to show you understand alternatives.
-6. **Add a "confidence score"** — Show similarity scores for retrieved chunks.
-
----
-
-## 📝 How to Describe This on Your Resume
-
-> **Document Q&A Assistant (RAG-based)** — Built a retrieval-augmented
-> generation chatbot using LangChain, ChromaDB, and Llama 3 (via Groq) that
-> answers questions over user-uploaded documents with cited sources.
-> Implemented document chunking, semantic embedding with sentence-transformers,
-> and a custom prompt-engineered QA chain. Deployed via Streamlit. [GitHub link] [Live demo link]
-
-**Skills to list:** Python, LangChain, RAG, Vector Databases, LLMs, Prompt Engineering, Streamlit
-
----
-
-## 🎤 Interview Prep — Be Ready to Explain:
-
-- **What is RAG and why use it instead of just an LLM?**
-  → Reduces hallucination, allows answering questions about private/recent
-  data the LLM wasn't trained on, and provides source citations.
-
-- **Why chunk documents? Why overlap?**
-  → Embedding models have size limits; smaller chunks = more precise
-  retrieval. Overlap prevents losing context at chunk boundaries.
-
-- **What's an embedding?**
-  → A numerical vector representation of text where semantically similar
-  text has vectors that are close together (measured via cosine similarity).
-
-- **What's the difference between this and fine-tuning?**
-  → Fine-tuning changes the model's weights (expensive, static).
-  RAG keeps the model frozen and injects relevant info at query time
-  (cheap, always up-to-date, easy to update by just adding documents).
-
-- **How would you scale this to production?**
-  → Swap Chroma for a managed vector DB (Pinecone/Weaviate), add caching,
-  add rate limiting, monitor retrieval quality, add user authentication.
-
----
-
-## ⚠️ Troubleshooting
-
-- **"No space left" / slow first run**: The embedding model (~80MB) downloads
-  on first use. Make sure you have internet access and a bit of disk space.
-- **Groq errors**: Double-check your API key is correctly pasted in `.env`
-  with no extra spaces.
-- **PDF not loading**: Make sure the PDF isn't a scanned image (no extractable text).
+## Project structure
+```
+rag_chatbot/
+├── app.py              # Streamlit UI
+├── rag_pipeline.py     # core RAG logic (loading, chunking, embedding, retrieval)
+├── evaluate.py          # RAGAS evaluation script
+├── requirements.txt
+├── sample_docs/
+│   └── company_policy.txt
+└── evaluation_results.csv
+```
